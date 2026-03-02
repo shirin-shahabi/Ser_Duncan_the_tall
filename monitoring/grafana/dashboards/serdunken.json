@@ -1,0 +1,78 @@
+{
+  "title": "Ser Duncan Risk Pipeline",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "table",
+      "title": "Recent Pipeline Runs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "{job=\"serdunken_gateway\"}",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "line",
+            "format": "json",
+            "replace": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "timestamp": 0,
+              "request_id": 1,
+              "asset": 2,
+              "status": 3,
+              "volatility": 4,
+              "match": 5,
+              "pipeline_ms": 6
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pipeline Request Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "sum(rate(pipeline_requests_total[5m])) by (status)",
+          "legendFormat": "{{status}}/sec"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Pipeline Latency P95",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(pipeline_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95_seconds"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Proof Status Rate",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "expr": "sum(rate(pipeline_proof_total[5m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    }
+  ]
+}

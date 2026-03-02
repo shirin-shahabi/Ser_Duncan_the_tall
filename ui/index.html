@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ser Duncan the Tall</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;color:#c9d1d9;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+.header{text-align:center;padding:2rem 1rem 1rem;border-bottom:1px solid #21262d}
+.header h1{font-size:1.8rem;color:#58a6ff;margin-bottom:0.3rem}
+.motto{color:#8b949e;font-style:italic;font-size:0.95rem}
+.controls{text-align:center;padding:1.2rem;display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap}
+.btn{background:#238636;color:#fff;border:none;padding:0.6rem 1.5rem;border-radius:6px;font-size:0.9rem;cursor:pointer;transition:background 0.2s}
+.btn:hover{background:#2ea043}
+.btn:disabled{background:#21262d;color:#484f58;cursor:not-allowed}
+.btn-auto{background:#8957e5}
+.btn-auto:hover{background:#a371f7}
+.btn-auto.running{background:#da3633}
+.btn-auto.running:hover{background:#f85149}
+.btn-secondary{background:#30363d}
+.btn-secondary:hover{background:#484f58}
+.input-field{background:#161b22;border:1px solid #30363d;color:#c9d1d9;padding:0.5rem 0.7rem;border-radius:6px;font-size:0.9rem;width:70px}
+.status-bar{text-align:center;font-size:0.85rem;color:#8b949e;min-height:1.2em;padding:0.3rem}
+.counter{background:#161b22;border:1px solid #30363d;padding:0.3rem 0.8rem;border-radius:12px;font-size:0.85rem;color:#58a6ff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem;max-width:1400px;margin:0 auto}
+.panel{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:1.2rem}
+.panel h2{font-size:1rem;color:#58a6ff;margin-bottom:0.8rem;display:flex;align-items:center;gap:0.5rem}
+.agent-tag{font-size:0.65rem;background:#30363d;padding:0.15rem 0.5rem;border-radius:10px;color:#8b949e}
+.metric{display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid #21262d}
+.metric:last-child{border-bottom:none}
+.metric-label{color:#8b949e;font-size:0.85rem}
+.metric-value{font-family:'Cascadia Code','Fira Code',monospace;color:#f0f6fc;font-size:0.85rem}
+.positive{color:#3fb950}
+.negative{color:#f85149}
+.neutral{color:#d29922}
+.full-width{grid-column:1/-1}
+.chart-container{position:relative;height:220px;margin-top:0.5rem}
+
+.stages{list-style:none;padding:0}
+.stage-item{display:grid;grid-template-columns:32px 1fr auto;gap:0.6rem;align-items:start;padding:0.6rem 0;border-bottom:1px solid #21262d;position:relative}
+.stage-item:last-child{border-bottom:none}
+.stage-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;flex-shrink:0}
+.stage-num.rb{background:#1f3a1f;color:#3fb950;border:1px solid #238636}
+.stage-num.zk{background:#1f2a3f;color:#58a6ff;border:1px solid #388bfd}
+.stage-body{min-width:0}
+.stage-action{font-weight:600;font-size:0.85rem;color:#f0f6fc}
+.stage-agent{font-size:0.7rem;color:#8b949e;margin-left:0.3rem}
+.stage-desc{font-size:0.8rem;color:#8b949e;margin-top:0.15rem;word-break:break-word}
+.stage-time{font-family:'Cascadia Code',monospace;font-size:0.75rem;color:#8b949e;white-space:nowrap}
+.stage-item.active .stage-num{animation:pulse 1s infinite}
+.stage-item.done .stage-num{opacity:1}
+.stage-item.pending .stage-num{opacity:0.3}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
+.proof-box{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:0.8rem;margin-top:0.5rem}
+.proof-label{font-size:0.75rem;color:#8b949e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem}
+.proof-hash{font-family:'Cascadia Code',monospace;font-size:0.72rem;color:#d2a8ff;word-break:break-all;line-height:1.5}
+.proof-badge{display:inline-block;padding:0.2rem 0.7rem;border-radius:4px;font-size:0.8rem;font-weight:600}
+.proof-badge.verified{background:#238636;color:#fff}
+.proof-badge.attestation{background:#8957e5;color:#fff}
+.proof-badge.pending{background:#30363d;color:#8b949e}
+
+.event-log{max-height:350px;overflow-y:auto}
+.event-log table{width:100%;border-collapse:collapse;font-size:0.75rem}
+.event-log th{text-align:left;padding:0.4rem;color:#58a6ff;border-bottom:1px solid #30363d;position:sticky;top:0;background:#161b22}
+.event-log td{padding:0.35rem 0.4rem;border-bottom:1px solid #21262d;font-family:'Cascadia Code',monospace}
+.event-log tr:hover{background:#1c2128}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Ser Duncan the Tall</h1>
+  <p class="motto">Verify first. Act second. Prove always.</p>
+</div>
+
+<div class="controls">
+  <input type="text" class="input-field" id="ticker" value="SPY" placeholder="Ticker">
+  <button class="btn" id="runBtn" onclick="runPipeline()">Run Pipeline</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAutoRun()">Auto-Run 20x</button>
+  <input type="number" class="input-field" id="autoCount" value="20" min="1" max="100" title="Number of auto-run requests">
+  <button class="btn btn-secondary" onclick="refreshEvents()">Refresh Log</button>
+  <span class="counter" id="runCounter">Runs: 0</span>
+</div>
+<div class="status-bar" id="status"></div>
+
+<div class="grid">
+
+  <div class="panel">
+    <h2>Risk Builder <span class="agent-tag">Agent 1 / Observer</span></h2>
+    <div class="metric"><span class="metric-label">Volatility (annualized)</span><span class="metric-value" id="vol">--</span></div>
+    <div class="metric"><span class="metric-label">VaR 95%</span><span class="metric-value" id="var95">--</span></div>
+    <div class="metric"><span class="metric-label">Mean Return</span><span class="metric-value" id="meanRet">--</span></div>
+    <div class="metric"><span class="metric-label">Std Return</span><span class="metric-value" id="stdRet">--</span></div>
+    <div class="metric"><span class="metric-label">Observations</span><span class="metric-value" id="nObs">--</span></div>
+    <div class="metric"><span class="metric-label">Data Hash (SHA-256)</span><span class="metric-value" id="priceHash" style="font-size:0.65rem">--</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>ZK Estimator <span class="agent-tag">Agent 2 / Gatekeeper</span></h2>
+    <div class="metric"><span class="metric-label">Recomputed Vol</span><span class="metric-value" id="reVol">--</span></div>
+    <div class="metric"><span class="metric-label">Recomputed VaR</span><span class="metric-value" id="reVar">--</span></div>
+    <div class="metric"><span class="metric-label">Vol Deviation</span><span class="metric-value" id="volDev">--</span></div>
+    <div class="metric"><span class="metric-label">VaR Deviation</span><span class="metric-value" id="varDev">--</span></div>
+    <div class="metric"><span class="metric-label">Cross-Agent Match</span><span class="metric-value" id="matchStatus">--</span></div>
+    <div class="metric"><span class="metric-label">ONNX Verifier Score</span><span class="metric-value" id="onnxScore">--</span></div>
+    <div class="metric"><span class="metric-label">Verification Latency</span><span class="metric-value" id="verifyTime">--</span></div>
+  </div>
+
+  <div class="panel full-width">
+    <h2>Pipeline Stages</h2>
+    <ul class="stages" id="stageList">
+      <li style="color:#484f58;font-size:0.85rem">Run the pipeline to see stage-by-stage execution</li>
+    </ul>
+  </div>
+
+  <div class="panel full-width">
+    <h2>ZK Proof Attestation</h2>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem">
+      <span id="proofBadge"><span class="proof-badge pending">Awaiting run</span></span>
+      <span class="metric-value" id="pipelineMs" style="font-size:0.8rem">--</span>
+    </div>
+    <div class="proof-box">
+      <div class="proof-label">Proof / Attestation Hash</div>
+      <div class="proof-hash" id="proofHash">--</div>
+    </div>
+  </div>
+
+  <div class="panel full-width">
+    <h2>Price History</h2>
+    <div class="chart-container">
+      <canvas id="priceChart"></canvas>
+    </div>
+  </div>
+
+  <div class="panel full-width">
+    <h2>Event Log <span class="agent-tag" id="logCount">0 entries</span></h2>
+    <div class="event-log" id="eventLog">
+      <table>
+        <thead><tr><th>Time</th><th>ID</th><th>Asset</th><th>Status</th><th>Vol</th><th>VaR95</th><th>Match</th><th>Proof Hash</th><th>Latency</th></tr></thead>
+        <tbody id="eventBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let priceChart = null;
+let autoRunTimer = null;
+let autoRunRemaining = 0;
+let totalRuns = 0;
+
+async function runPipeline() {
+  const btn = document.getElementById('runBtn');
+  const status = document.getElementById('status');
+  const ticker = document.getElementById('ticker').value || 'SPY';
+  btn.disabled = true;
+  status.textContent = 'Running pipeline...';
+
+  showPendingStages();
+
+  try {
+    const res = await fetch(`/pipeline?ticker=${encodeURIComponent(ticker)}&window_days=252`, {method:'POST'});
+    const data = await res.json();
+
+    if (data.error) {
+      status.textContent = 'Error: ' + data.error;
+      if (data.stages) renderStages(data.stages);
+      btn.disabled = false;
+      return;
+    }
+
+    totalRuns++;
+    document.getElementById('runCounter').textContent = `Runs: ${totalRuns}`;
+
+    const r = data.risk;
+    document.getElementById('vol').textContent = r.volatility.toFixed(6);
+    document.getElementById('var95').textContent = r.var_95.toFixed(6);
+    document.getElementById('var95').className = 'metric-value negative';
+    document.getElementById('meanRet').textContent = r.mean_return.toFixed(8);
+    document.getElementById('stdRet').textContent = r.std_return.toFixed(8);
+    document.getElementById('nObs').textContent = r.n_observations;
+    document.getElementById('priceHash').textContent = r.price_hash;
+
+    const v = data.verification;
+    document.getElementById('reVol').textContent = v.recomputed_vol.toFixed(6);
+    document.getElementById('reVar').textContent = v.recomputed_var.toFixed(6);
+    document.getElementById('volDev').textContent = v.vol_deviation.toExponential(4);
+    document.getElementById('volDev').className = 'metric-value ' + (v.vol_deviation < 1e-6 ? 'positive' : 'negative');
+    document.getElementById('varDev').textContent = v.var_deviation.toExponential(4);
+    document.getElementById('varDev').className = 'metric-value ' + (v.var_deviation < 1e-6 ? 'positive' : 'negative');
+    document.getElementById('matchStatus').textContent = v.match ? 'MATCH' : 'MISMATCH';
+    document.getElementById('matchStatus').className = 'metric-value ' + (v.match ? 'positive' : 'negative');
+    document.getElementById('onnxScore').textContent = v.onnx_score.toFixed(6);
+    document.getElementById('verifyTime').textContent = v.timing_ms.toFixed(1) + ' ms';
+
+    const badge = document.getElementById('proofBadge');
+    if (v.verified) {
+      badge.innerHTML = '<span class="proof-badge verified">ZK VERIFIED</span>';
+    } else if (v.proof_hash) {
+      badge.innerHTML = '<span class="proof-badge attestation">ATTESTATION</span>';
+    } else {
+      badge.innerHTML = '<span class="proof-badge pending">No proof</span>';
+    }
+    document.getElementById('proofHash').textContent = v.proof_hash || '--';
+    document.getElementById('pipelineMs').textContent = 'Pipeline: ' + data.pipeline_ms.toFixed(1) + ' ms';
+
+    if (data.stages) renderStages(data.stages);
+    renderChart(r.prices);
+    status.textContent = `[${data.request_id}] Pipeline complete - ${data.timestamp}`;
+    refreshEvents();
+  } catch(e) {
+    status.textContent = 'Request failed: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+function showPendingStages() {
+  const names = [
+    {n:'1',a:'risk_builder',t:'yfinance_fetch',d:'Fetching market data...'},
+    {n:'2',a:'risk_builder',t:'compute_risk',d:'Computing volatility and VaR...'},
+    {n:'3',a:'zk_estimator',t:'decimal_recompute',d:'Recomputing with Decimal arithmetic...'},
+    {n:'4',a:'zk_estimator',t:'cross_verify',d:'Comparing Agent 1 vs Agent 2...'},
+    {n:'5',a:'zk_estimator',t:'onnx_inference',d:'Running ONNX risk verifier...'},
+    {n:'6',a:'zk_estimator',t:'zk_proof',d:'Generating proof attestation...'},
+  ];
+  const ul = document.getElementById('stageList');
+  ul.innerHTML = names.map((s,i) => {
+    const cls = i === 0 ? 'active' : 'pending';
+    const agentCls = s.a === 'risk_builder' ? 'rb' : 'zk';
+    return `<li class="stage-item ${cls}">
+      <div class="stage-num ${agentCls}">${s.n}</div>
+      <div class="stage-body">
+        <span class="stage-action">${s.t}</span><span class="stage-agent">${s.a}</span>
+        <div class="stage-desc">${s.d}</div>
+      </div>
+      <span class="stage-time">...</span>
+    </li>`;
+  }).join('');
+}
+
+function renderStages(stages) {
+  const ul = document.getElementById('stageList');
+  ul.innerHTML = stages.map(s => {
+    const agentCls = s.agent === 'risk_builder' ? 'rb' : 'zk';
+    const timeStr = s.duration_ms > 0 ? s.duration_ms.toFixed(1) + ' ms' : '--';
+    return `<li class="stage-item done">
+      <div class="stage-num ${agentCls}">${s.stage}</div>
+      <div class="stage-body">
+        <span class="stage-action">${s.action}</span><span class="stage-agent">${s.agent}</span>
+        <div class="stage-desc">${s.description}</div>
+      </div>
+      <span class="stage-time">${timeStr}</span>
+    </li>`;
+  }).join('');
+}
+
+function renderChart(prices) {
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const labels = prices.map((_, i) => i);
+  const values = prices.map(Number);
+  if (priceChart) priceChart.destroy();
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Close Price',
+        data: values,
+        borderColor: '#58a6ff',
+        backgroundColor: 'rgba(88,166,255,0.08)',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {legend:{display:false}},
+      scales: {
+        x: {display:false},
+        y: {grid:{color:'#21262d'},ticks:{color:'#8b949e',font:{size:10}}}
+      }
+    }
+  });
+}
+
+function toggleAutoRun() {
+  const btn = document.getElementById('autoBtn');
+  if (autoRunTimer) {
+    clearInterval(autoRunTimer);
+    autoRunTimer = null;
+    btn.textContent = `Auto-Run ${document.getElementById('autoCount').value}x`;
+    btn.classList.remove('running');
+    document.getElementById('status').textContent = 'Auto-run stopped.';
+    return;
+  }
+
+  autoRunRemaining = parseInt(document.getElementById('autoCount').value) || 20;
+  btn.textContent = `Stop (${autoRunRemaining} left)`;
+  btn.classList.add('running');
+
+  runPipeline();
+  autoRunRemaining--;
+
+  autoRunTimer = setInterval(() => {
+    if (autoRunRemaining <= 0) {
+      clearInterval(autoRunTimer);
+      autoRunTimer = null;
+      btn.textContent = `Auto-Run ${document.getElementById('autoCount').value}x`;
+      btn.classList.remove('running');
+      document.getElementById('status').textContent = 'Auto-run complete.';
+      return;
+    }
+    btn.textContent = `Stop (${autoRunRemaining} left)`;
+    runPipeline();
+    autoRunRemaining--;
+  }, 1000);
+}
+
+async function refreshEvents() {
+  try {
+    const res = await fetch('/events?limit=100');
+    const events = await res.json();
+    document.getElementById('logCount').textContent = events.length + ' entries';
+    const tbody = document.getElementById('eventBody');
+    tbody.innerHTML = events.reverse().map(e => {
+      const hash = e.proof_hash ? e.proof_hash.substring(0,12) + '...' : '--';
+      return `<tr>
+        <td>${(e.timestamp||'').slice(11,19)}</td>
+        <td>${e.request_id||''}</td>
+        <td>${e.asset||''}</td>
+        <td style="color:${e.status==='ok'?'#3fb950':'#f85149'}">${e.status||''}</td>
+        <td>${e.volatility!=null?e.volatility.toFixed(4):''}</td>
+        <td>${e.var_95!=null?e.var_95.toFixed(4):''}</td>
+        <td style="color:${e.match?'#3fb950':'#f85149'}">${e.match!=null?(e.match?'Y':'N'):''}</td>
+        <td style="color:#d2a8ff;font-size:0.7rem">${hash}</td>
+        <td>${e.pipeline_ms!=null?e.pipeline_ms.toFixed(0)+'ms':''}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+refreshEvents();
+</script>
+</body>
+</html>

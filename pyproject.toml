@@ -1,0 +1,26 @@
+[project]
+name = "ser-dunken"
+version = "0.1.0"
+description = "Cryptographically verified risk computation with multi-agent ZK proofs"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "yfinance>=0.2.40",
+    "numpy>=1.26.0",
+    "onnxruntime>=1.18.0",
+    "onnx>=1.16.0",
+    "prometheus-client>=0.21.0",
+    "pydantic>=2.8.0",
+    "python-dotenv>=1.0.0",
+    "torch>=2.3.0",
+    "pyyaml>=6.0",
+    "onnxscript>=0.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["gateway", "risk_builder", "zk_estimator", "models"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

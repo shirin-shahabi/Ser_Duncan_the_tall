@@ -1,0 +1,24 @@
+{
+  "name": "ser_duncan_the_tall",
+  "version": "0.1.0",
+  "motto": "Verify first. Act second. Prove always.",
+  "agents": {
+    "risk_builder": {
+      "role": "observer",
+      "description": "Fetches live SPY ETF data and computes annualized volatility + 95% parametric VaR",
+      "endpoint": "/risk/compute",
+      "skills": ["yfinance_fetch", "volatility_calculation", "var_computation"]
+    },
+    "zk_estimator": {
+      "role": "gatekeeper",
+      "description": "Independently recomputes risk metrics using Decimal arithmetic and generates ZK proof of inference",
+      "endpoint": "/risk/verify",
+      "skills": ["decimal_recomputation", "onnx_inference", "dsperse_proof"]
+    }
+  },
+  "pipeline": {
+    "endpoint": "/pipeline",
+    "flow": ["risk_builder", "zk_estimator"],
+    "proof_enabled": false
+  }
+}

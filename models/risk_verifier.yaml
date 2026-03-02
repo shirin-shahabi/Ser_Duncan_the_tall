@@ -1,0 +1,22 @@
+name: risk_verifier
+threshold: 0.5
+features:
+  - name: vol_deviation
+    type: builtin
+    index: 0
+  - name: var_deviation
+    type: builtin
+    index: 1
+  - name: price_count_norm
+    type: builtin
+    index: 2
+  - name: vol_norm
+    type: builtin
+    index: 3
+model:
+  layers:
+    - op: Gemm
+      out_dim: 8
+    - op: Relu
+    - op: Gemm
+      out_dim: 1
