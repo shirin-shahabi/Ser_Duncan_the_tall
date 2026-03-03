@@ -1,0 +1,1 @@
+{"scale_base": 2, "scale_exponent": 18, "rescale_config": {}, "inputs": [{"name": "features", "elem_type": -1, "shape": [1, 4]}], "outputs": [{"name": "output", "elem_type": -1, "shape": [1, 1]}], "version": "2.7.0", "n_bits_config": {}, "weights_as_inputs": false, "input_scales": {"features": 262144.0}}

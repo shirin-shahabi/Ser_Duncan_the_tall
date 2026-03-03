@@ -5,8 +5,11 @@ Keeps JSTprove loaded and circuits cached across requests.
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
+import os
 import sys
 import tempfile
 import time
@@ -17,11 +20,9 @@ from typing import Any
 import numpy as np
 import onnxruntime as ort
 
-try:
-    from dsperse.src.backends.jstprove import JSTprove
-    HAS_JSTPROVE = True
-except ImportError:
-    HAS_JSTPROVE = False
+from dsperse.src.backends.jstprove import JSTprove
+
+HAS_JSTPROVE = True
 
 
 class ZkProxyWorker:
@@ -96,16 +97,17 @@ class ZkProxyWorker:
         model_path = params["model_path"]
         features = params["features"]
 
+        session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        inp_name = session.get_inputs()[0].name
+
         input_file = self._work_dir / "witness_input.json"
         output_file = self._work_dir / "witness_output.json"
 
-        input_data = {"input_data": [features]}
+        input_data = {inp_name: [features]}
         with input_file.open("w") as f:
             json.dump(input_data, f)
 
         if not HAS_JSTPROVE:
-            session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-            inp_name = session.get_inputs()[0].name
             out = session.run(None, {inp_name: np.array([features], dtype=np.float32)})
             score = float(out[0].reshape(-1)[0])
             return {"success": True, "witness_data": {"logits": [score]}}
@@ -115,10 +117,16 @@ class ZkProxyWorker:
             model_path=model_path,
             output_file=output_file,
         )
-        return {
-            "success": ok,
-            "witness_data": result if isinstance(result, dict) else {"raw": str(result)},
-        }
+        if isinstance(result, dict):
+            witness_data = {}
+            for k, v in result.items():
+                if hasattr(v, "tolist"):
+                    witness_data[k] = v.tolist()
+                else:
+                    witness_data[k] = v
+        else:
+            witness_data = {"raw": str(result)}
+        return {"success": ok, "witness_data": witness_data}
 
     def _prove(self, params: dict) -> dict:
         witness_path = Path(params["witness_path"])
@@ -174,7 +182,10 @@ class ZkProxyWorker:
         logits = witness_result.get("witness_data", {}).get("logits")
         score = 0.0
         if logits:
-            score = float(logits[0]) if isinstance(logits, list) else float(logits)
+            val = logits
+            while isinstance(val, list):
+                val = val[0]
+            score = float(val)
 
         circuit_path = self._compiled.get(model_path, "")
         if not circuit_path:
@@ -187,7 +198,7 @@ class ZkProxyWorker:
                 "note": "no compiled circuit available, skipping prove/verify",
             }
 
-        witness_bin = self._work_dir / "witness_input_witness.bin"
+        witness_bin = self._work_dir / "witness_output_witness.bin"
         if not witness_bin.exists():
             return {
                 "success": True,
@@ -242,11 +253,16 @@ class ZkProxyWorker:
 
 
 def main() -> None:
+    saved_fd = os.dup(1)
+    os.dup2(sys.stderr.fileno(), 1)
+    proto_out = io.TextIOWrapper(io.FileIO(saved_fd, mode="w"), write_through=True)
+    sys.stdout = sys.stderr
+
     worker = ZkProxyWorker()
 
     startup_msg = json.dumps({"jsonrpc": "2.0", "method": "startup", "params": {"status": "ready"}})
-    sys.stdout.write(startup_msg + "\n")
-    sys.stdout.flush()
+    proto_out.write(startup_msg + "\n")
+    proto_out.flush()
 
     for line in sys.stdin:
         line = line.strip()
@@ -257,13 +273,13 @@ def main() -> None:
             request = json.loads(line)
         except json.JSONDecodeError as e:
             response = ZkProxyWorker._error(0, -32700, f"Parse error: {e}")
-            sys.stdout.write(json.dumps(response) + "\n")
-            sys.stdout.flush()
+            proto_out.write(json.dumps(response) + "\n")
+            proto_out.flush()
             continue
 
         response = worker.handle(request)
-        sys.stdout.write(json.dumps(response) + "\n")
-        sys.stdout.flush()
+        proto_out.write(json.dumps(response) + "\n")
+        proto_out.flush()
 
 
 if __name__ == "__main__":

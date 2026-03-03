@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential pkg-config libclang-dev clang && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install uv
+
+COPY pyproject.toml .
+RUN uv pip install --system --no-build-isolation \
+    fastapi 'uvicorn[standard]' numpy onnxruntime onnx \
+    pydantic python-dotenv pyyaml \
+    'dsperse>=1.0.5' 'httpx>=0.27.0'
+
+COPY zk_estimator/ zk_estimator/
+COPY models/ models/
+
+ENV ENABLE_DSPERSE_PROOF=1
+
+EXPOSE 8100
+
+CMD ["uvicorn", "zk_estimator.zkproxy_server:app", "--host", "0.0.0.0", "--port", "8100"]

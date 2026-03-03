@@ -9,6 +9,18 @@ services:
     volumes:
       - ./data:/app/data
 
+  zkproxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.zkproxy
+    container_name: serdunken_zkproxy
+    ports:
+      - "8100:8100"
+    environment:
+      - ENABLE_DSPERSE_PROOF=1
+    volumes:
+      - ./models:/app/models:ro
+
   loki:
     image: grafana/loki:3.0.0
     container_name: serdunken_loki

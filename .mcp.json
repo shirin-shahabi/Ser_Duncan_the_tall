@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zk-proxy": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "zk_estimator.zkproxy_mcp"]
+    }
+  }
+}
